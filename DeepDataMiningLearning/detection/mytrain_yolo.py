@@ -260,7 +260,14 @@ def main(args):
         else:
             train_batch_sampler = torch.utils.data.BatchSampler(train_sampler, args.batch_size, drop_last=True)
 
-    new_collate_fn = utils.mycollate_fn #utils.collate_fn
+    # Use appropriate collate function based on output format
+    # YOLO format returns tuples (image, target), COCO format returns dicts
+    if output_format == "yolo":
+        new_collate_fn = utils.collate_fn  # For YOLO format (tuples)
+        print("Using YOLO collate_fn for tuple format")
+    else:
+        new_collate_fn = utils.mycollate_fn  # For COCO format (dicts)
+        print("Using COCO mycollate_fn for dict format")
     
     # Optimize number of workers based on dataset type
     num_workers = args.workers
@@ -412,25 +419,44 @@ def main(args):
         cfgs=yolo_cfgs
     )
     
-    # Get class names - use dataset-specific class names for proper evaluation
+    # Get class names - prioritize data.yaml, then COCO annotations, then fallback
     if args.dataset in ["kitti", "kitti_yolo"]:
         # Use KITTI class names for proper evaluation
         kitti_classes = ['Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram', 'Misc']
         classes = {i: name for i, name in enumerate(kitti_classes[:num_classes])}
         print(f"Using KITTI class mapping: {classes}")
     elif args.dataset == "waymococo":
-        # Use Waymo/dataset-specific class names
-        # Try to get from dataset first
-        if hasattr(dataset, 'categories') and dataset.categories:
-            classes = {cat['id']: cat['name'] for cat in dataset.categories}
-            print(f"Using dataset class mapping: {classes}")
-        elif hasattr(dataset, 'coco') and hasattr(dataset.coco, 'cats'):
-            classes = {cat_id: cat_info['name'] for cat_id, cat_info in dataset.coco.cats.items()}
-            print(f"Using COCO dataset class mapping: {classes}")
+        # Priority 1: Check for data.yaml (YOLO format standard)
+        data_yaml_path = os.path.join(args.data_path, 'data.yaml')
+        if os.path.exists(data_yaml_path):
+            import yaml
+            with open(data_yaml_path, 'r') as f:
+                data_yaml = yaml.safe_load(f)
+                if 'names' in data_yaml:
+                    # data.yaml format: names can be list or dict
+                    if isinstance(data_yaml['names'], list):
+                        classes = {i: name for i, name in enumerate(data_yaml['names'])}
+                    else:
+                        classes = data_yaml['names']
+                    print(f"✅ Using class names from data.yaml: {classes}")
+                else:
+                    classes = None
         else:
-            # Fallback to model classes
-            classes = model_classes
-            print(f"Using model class mapping: {classes}")
+            classes = None
+        
+        # Priority 2: Extract from COCO annotations if data.yaml not found
+        if classes is None:
+            if hasattr(dataset, 'coco') and hasattr(dataset.coco, 'cats'):
+                # COCO categories: {1: {'id': 1, 'name': 'Vehicle'}, ...}
+                classes = {cat_id: cat_info['name'] for cat_id, cat_info in dataset.coco.cats.items()}
+                print(f"✅ Extracted class names from COCO annotations: {classes}")
+            elif hasattr(dataset, 'categories') and dataset.categories:
+                classes = {cat['id']: cat['name'] for cat in dataset.categories}
+                print(f"✅ Extracted class names from dataset categories: {classes}")
+            else:
+                # Fallback to model classes
+                classes = model_classes
+                print(f"⚠️ Using model default class names: {classes}")
     elif hasattr(model, 'names') and model.names:
         classes = model.names
     else:
