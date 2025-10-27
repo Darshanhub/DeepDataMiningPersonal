@@ -30,7 +30,7 @@ from DeepDataMiningLearning.detection.modules.block import (
     AIFI, C1, C2, C3, C3TR, SPP, SPPF, Bottleneck, BottleneckCSP, C2f, C3Ghost, C3x,
     Concat, Conv, Conv2, ConvTranspose, DWConv, DWConvTranspose2d,
     Focus, GhostBottleneck, GhostConv, HGBlock, HGStem, RepC3, RepConv, MP, SPPCSPC,
-    C3K2, C2PSA, PSABlock, MultiHeadAttention, RELAN, A2 
+    C3K2, C2PSA, PSABlock, MultiHeadAttention, RELAN, A2, C2fCBAM, DeformConv 
 )  # Various building blocks for YOLO architecture
 
 # Import utility functions

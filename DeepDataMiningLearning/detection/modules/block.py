@@ -13,11 +13,12 @@ import requests
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-#from torchvision.ops import DeformConv2d
+from torchvision.ops import DeformConv2d
 from PIL import Image
 from torch.cuda import amp
 from torch.nn.init import constant_, xavier_uniform_
 from DeepDataMiningLearning.detection.modules.utils import multi_scale_deformable_attn_pytorch, _get_clones, inverse_sigmoid
+from DeepDataMiningLearning.detection.modules.attention import CBAM
 
 #from utils.datasets import letterbox #only used in autoShape
 #NMS uses non_max_suppression
@@ -1485,6 +1486,42 @@ class C2f(nn.Module):
         y = list(self.cv1(x).split((self.c, self.c), 1))
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
+
+class C2fCBAM(nn.Module):
+    """C2f block with CBAM attention applied to the fused output.
+
+    Drop-in replacement for C2f to add lightweight channel+spatial attention
+    in the neck. Keeps input/output shapes identical.
+    """
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5, ratio=16, sa_kernel=7):
+        super().__init__()
+        self.c2f = C2f(c1, c2, n=n, shortcut=shortcut, g=g, e=e)
+        self.attn = CBAM(in_planes=c2, ratio=ratio, kernel_size=sa_kernel)
+
+    def forward(self, x):
+        y = self.c2f(x)
+        return self.attn(y)
+
+class DeformConv(nn.Module):
+    """Deformable Conv2d block with BN and activation (SiLU by default).
+
+    This is a drop-in alternative to Conv for neck downsample layers.
+    """
+    def __init__(self, c1, c2, k=3, s=1, p=None, g=1, act=True):
+        super().__init__()
+        p = autopad(k, p)
+        # offset has 2*k*k channels
+        self.offset = nn.Conv2d(c1, 2 * (k if isinstance(k, int) else k[0]) * (k if isinstance(k, int) else k[1]),
+                                k, s, p, bias=True)
+        self.conv = DeformConv2d(c1, c2, k, s, p, g)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = nn.SiLU() if act else nn.Identity()
+
+    def forward(self, x):
+        off = self.offset(x)
+        y = self.conv(x, off)
+        y = self.bn(y)
+        return self.act(y)
 
 class C3K2(nn.Module):
     """C3K2 block for YOLOv11 - Cross Stage Partial with kernel size 2."""
