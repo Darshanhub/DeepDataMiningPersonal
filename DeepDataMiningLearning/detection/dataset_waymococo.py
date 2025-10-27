@@ -22,11 +22,12 @@ import shutil
 from torchvision.transforms import functional as F
 
 class WaymoCOCODataset(torch.utils.data.Dataset):
-    def __init__(self, root, annotation, train=True, transform=None):
+    def __init__(self, root, annotation, train=True, transform=None, output_format="torch"):
         self.root = root
         self.transform = transform
         self.coco = COCO(annotation)
         self.is_train = train
+        self.output_format = output_format  # "torch", "coco", or "yolo"
         self.ids = list(sorted(self.coco.imgs.keys()))#id string list
 
         #
@@ -172,7 +173,43 @@ class WaymoCOCODataset(torch.utils.data.Dataset):
         else:
             img = F.to_tensor(img)
 
-        return img, target
+        # Return format based on output_format setting
+        if self.output_format == "coco":
+            # COCO dict format for training loop: {'img': tensor, 'cls': tensor, 'bboxes': tensor}
+            # Convert xyxy boxes to xywh normalized format
+            h, w = img.shape[1], img.shape[2]
+            boxes_xywh = boxes.clone()
+            if boxes_xywh.numel() > 0:
+                # Convert [x1, y1, x2, y2] to normalized [x_center, y_center, width, height]
+                boxes_xywh[:, 0] = (boxes[:, 0] + boxes[:, 2]) / 2 / w  # x_center
+                boxes_xywh[:, 1] = (boxes[:, 1] + boxes[:, 3]) / 2 / h  # y_center
+                boxes_xywh[:, 2] = (boxes[:, 2] - boxes[:, 0]) / w      # width
+                boxes_xywh[:, 3] = (boxes[:, 3] - boxes[:, 1]) / h      # height
+            
+            return {
+                'img': img,
+                'cls': labels,
+                'bboxes': boxes_xywh,
+                'batch_idx': torch.zeros(len(labels), dtype=torch.long),  # Will be set by collate_fn
+            }
+        elif self.output_format == "yolo":
+            # YOLO dict format
+            h, w = img.shape[1], img.shape[2]
+            boxes_xywh = boxes.clone()
+            if boxes_xywh.numel() > 0:
+                boxes_xywh[:, 0] = (boxes[:, 0] + boxes[:, 2]) / 2 / w
+                boxes_xywh[:, 1] = (boxes[:, 1] + boxes[:, 3]) / 2 / h
+                boxes_xywh[:, 2] = (boxes[:, 2] - boxes[:, 0]) / w
+                boxes_xywh[:, 3] = (boxes[:, 3] - boxes[:, 1]) / h
+            
+            return {
+                'img': img,
+                'cls': labels,
+                'bboxes': boxes_xywh,
+            }
+        else:
+            # Default torch format: (image, target) tuple
+            return img, target
 
         
         # Dictionary: target coco_annotation file for an image

@@ -599,10 +599,10 @@ def get_waymococodataset(is_train, is_val, data_path, annotationfile, output_for
         transform = make_train_transform_with_resize(img_size)
         split_name = "training"
 
-    # --- Step 3: Load dataset ---
-    dataset = WaymoCOCODataset(rootPath, ann_path, train=is_train, transform=transform)
+    # --- Step 3: Load dataset with specified output format ---
+    dataset = WaymoCOCODataset(rootPath, ann_path, train=is_train, transform=transform, output_format=output_format)
     num_classes = dataset.numclass
-    print(f"✅ Waymo COCO {split_name} set loaded: {len(dataset)} samples, {num_classes} classes, img_size={img_size}")
+    print(f"✅ Waymo COCO {split_name} set loaded: {len(dataset)} samples, {num_classes} classes, img_size={img_size}, format={output_format}")
 
     return dataset, num_classes
 
