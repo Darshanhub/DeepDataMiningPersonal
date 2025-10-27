@@ -3,6 +3,7 @@ import os
 import time
 import math
 import sys
+import json
 import torch
 import torch.utils.data
 import torchvision
@@ -180,13 +181,46 @@ def main(args):
     if args.dataset not in supported_datasets:
         raise ValueError(f"Dataset should be one of {supported_datasets}, got {args.dataset}")
 
+    # Setup output directory with experiment name validation
     if args.output_dir:
         utils.mkdir(args.output_dir)
         if args.expname:
-            args.output_dir = os.path.join(args.output_dir, args.dataset, args.expname)
+            # Create experiment-specific directory
+            args.output_dir = os.path.join(args.output_dir, args.expname)
+            
+            # Check if experiment already exists (prevent overwriting)
+            if os.path.exists(args.output_dir) and not args.resume:
+                # Check if it has any training artifacts
+                has_checkpoints = os.path.exists(os.path.join(args.output_dir, "checkpoint.pth"))
+                
+                # Safely check for epoch folders
+                has_epoch_folders = False
+                try:
+                    dir_contents = os.listdir(args.output_dir)
+                    has_epoch_folders = any(
+                        d.startswith("epoch_") and os.path.isdir(os.path.join(args.output_dir, d))
+                        for d in dir_contents
+                    )
+                except (OSError, PermissionError):
+                    # If we can't read the directory, assume it's not empty
+                    has_epoch_folders = True
+                
+                if has_checkpoints or has_epoch_folders:
+                    raise RuntimeError(
+                        f"❌ Experiment '{args.expname}' already exists at: {args.output_dir}\n"
+                        f"   This experiment has existing training data (checkpoints or epoch logs).\n"
+                        f"   To prevent accidental overwriting:\n"
+                        f"   - Use a different --expname, OR\n"
+                        f"   - Use --resume to continue training, OR\n"
+                        f"   - Manually delete/rename the existing folder: {args.output_dir}"
+                    )
+                else:
+                    print(f"⚠️  Experiment folder exists but is empty. Proceeding...")
         else:
             args.output_dir = os.path.join(args.output_dir, args.dataset)
+        
         utils.mkdir(args.output_dir)
+        print(f"✅ Experiment directory: {args.output_dir}")
 
     if args.multigpu:
         utils.init_distributed_mode(args)
@@ -560,7 +594,7 @@ def main(args):
     print("Start training")
     start_time = time.time()
     
-    # Enhanced training loop with better logging and KITTI support
+    # Enhanced training loop with epoch-specific logging
     for epoch in range(args.start_epoch, args.epochs+1):
         if args.distributed:
             train_sampler.set_epoch(epoch) #set the epoch for the train sampler
@@ -568,8 +602,37 @@ def main(args):
         print(f"\nEpoch {epoch}/{args.epochs}")
         print(f"Dataset: {args.dataset}, Batch size: {args.batch_size}")
         
-        train_one_epoch(model, optimizer, data_loader, device, preprocess, epoch, args.print_freq, scaler)
+        # Create epoch-specific directory for logs (non-blocking, minimal overhead)
+        epoch_dir = None
+        if args.output_dir:
+            epoch_dir = os.path.join(args.output_dir, f"epoch_{epoch}")
+            os.makedirs(epoch_dir, exist_ok=True)
+        
+        # Train for one epoch
+        train_metrics = train_one_epoch(model, optimizer, data_loader, device, preprocess, epoch, args.print_freq, scaler)
         lr_scheduler.step()
+        
+        # Save training metrics to epoch folder (fast, non-blocking)
+        if epoch_dir:
+            try:
+                # Save metrics as JSON (lightweight, fast)
+                metrics_file = os.path.join(epoch_dir, "train_metrics.json")
+                metrics_dict = {
+                    "epoch": epoch,
+                    "loss": float(train_metrics.meters['loss'].global_avg),
+                    "lr": float(optimizer.param_groups[0]["lr"]),
+                    "time": str(datetime.timedelta(seconds=int(time.time() - start_time)))
+                }
+                
+                # Add individual loss components if available
+                for key in ['box', 'cls', 'dfl']:
+                    if key in train_metrics.meters:
+                        metrics_dict[f'loss_{key}'] = float(train_metrics.meters[key].global_avg)
+                
+                with open(metrics_file, 'w') as f:
+                    json.dump(metrics_dict, f, indent=2)
+            except Exception as e:
+                print(f"⚠️  Failed to save metrics: {e}")
         
         # Periodic evaluation during training for KITTI
         if args.dataset in ["kitti", "kitti_yolo"] and epoch % 5 == 0:
@@ -579,6 +642,7 @@ def main(args):
             except Exception as e:
                 print(f"Evaluation failed: {e}")
         
+        # Save checkpoint at specified intervals
         if epoch % args.saveeveryepoch == 0 or epoch == args.epochs:
             if args.output_dir:
                 checkpoint = {
@@ -590,12 +654,30 @@ def main(args):
                 }
                 if args.amp:
                     checkpoint["scaler"] = scaler.state_dict()
+                
+                # Save to epoch folder
+                if epoch_dir:
+                    epoch_ckpt_path = os.path.join(epoch_dir, f"checkpoint_epoch_{epoch}.pth")
+                    utils.save_on_master(checkpoint, epoch_ckpt_path)
+                    print(f"💾 Saved checkpoint to: {epoch_ckpt_path}")
+                
+                # Also save to root directory for easy resumption
                 utils.save_on_master(checkpoint, os.path.join(args.output_dir, f"model_{epoch}.pth"))
                 utils.save_on_master(checkpoint, os.path.join(args.output_dir, "checkpoint.pth"))
 
-            # evaluate after current epoch
-            #modelevaluate(model, data_loader_test, device=device)
-            yoloevaluate(model, data_loader_test, preprocess, device)
+            # Evaluate after current epoch and save results to epoch folder
+            print(f"\n📊 Running evaluation for epoch {epoch}...")
+            eval_results = yoloevaluate(model, data_loader_test, preprocess, device)
+            
+            # Save evaluation results to epoch folder (if yoloevaluate returns something)
+            if epoch_dir and eval_results is not None:
+                try:
+                    eval_file = os.path.join(epoch_dir, "eval_results.json")
+                    with open(eval_file, 'w') as f:
+                        json.dump(eval_results, f, indent=2)
+                    print(f"💾 Saved evaluation results to: {eval_file}")
+                except Exception as e:
+                    print(f"⚠️  Failed to save evaluation results: {e}")
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
