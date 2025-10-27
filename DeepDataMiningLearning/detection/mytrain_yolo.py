@@ -339,11 +339,12 @@ def main(args):
     )
     
     # Create model with proper class configuration for KITTI
+    # Note: create_yolomodel returns (model, preprocess, classes) tuple
     if args.dataset in ["kitti", "kitti_yolo"]:
         # Check if we should load default model without changing class numbers
         if args.load_default_model:
             print("Loading default pretrained model without changing class numbers...")
-            model = create_yolomodel(
+            model, preprocess_func, model_classes = create_yolomodel(
                 modelname=yaml_path,  # Use YAML config path
                 num_classes=None,  # Keep original class count from pretrained model
                 ckpt_file=args.ckpt,
@@ -354,7 +355,7 @@ def main(args):
             print(f"✅ Default model loaded with original class configuration")
         else:
             # For KITTI, we need to override the default YOLO config
-            model = create_yolomodel(
+            model, preprocess_func, model_classes = create_yolomodel(
                 modelname=yaml_path,  # Use YAML config path
                 num_classes=num_classes,  # This should be 8 for KITTI
                 ckpt_file=args.ckpt,
@@ -372,7 +373,7 @@ def main(args):
         # Check if we should load default model without changing class numbers
         if args.load_default_model:
             print("Loading default pretrained model without changing class numbers...")
-            model = create_yolomodel(
+            model, preprocess_func, model_classes = create_yolomodel(
                 modelname=yaml_path,  # Use YAML config path
                 num_classes=None,  # Keep original class count from pretrained model
                 ckpt_file=args.ckpt,
@@ -383,14 +384,14 @@ def main(args):
             print(f"✅ Default model loaded with original class configuration")
         else:
             # Create model normally for other datasets
-            model = create_yolomodel(
+            model, preprocess_func, model_classes = create_yolomodel(
                 modelname=yaml_path,  # Use YAML config path
                 num_classes=num_classes,
                 ckpt_file=args.ckpt,
                 device=device, 
                 scale=args.scale,
                 version='v8'  # Explicitly set to v8
-        )
+            )
     
     # Create preprocessing function - the model has built-in preprocessing
     from DeepDataMiningLearning.detection.modules.yolotransform import YoloTransform
@@ -417,6 +418,19 @@ def main(args):
         kitti_classes = ['Car', 'Van', 'Truck', 'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram', 'Misc']
         classes = {i: name for i, name in enumerate(kitti_classes[:num_classes])}
         print(f"Using KITTI class mapping: {classes}")
+    elif args.dataset == "waymococo":
+        # Use Waymo/dataset-specific class names
+        # Try to get from dataset first
+        if hasattr(dataset, 'categories') and dataset.categories:
+            classes = {cat['id']: cat['name'] for cat in dataset.categories}
+            print(f"Using dataset class mapping: {classes}")
+        elif hasattr(dataset, 'coco') and hasattr(dataset.coco, 'cats'):
+            classes = {cat_id: cat_info['name'] for cat_id, cat_info in dataset.coco.cats.items()}
+            print(f"Using COCO dataset class mapping: {classes}")
+        else:
+            # Fallback to model classes
+            classes = model_classes
+            print(f"Using model class mapping: {classes}")
     elif hasattr(model, 'names') and model.names:
         classes = model.names
     else:
