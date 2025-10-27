@@ -226,9 +226,10 @@ def main(args):
     # Data loading code with optimized settings for different datasets
     print("Loading data")
 
-    # Custom YOLO training path - use our dataset with YOLO format
-    output_format = "yolo"
-    print("🔧 Using custom YOLO training path with our KittiDataset")
+    # Custom YOLO training path - use COCO dict format for compatibility with training loop
+    # Training loop expects dict format: {'img': tensor, 'cls': tensor, 'bboxes': tensor}
+    output_format = "coco"
+    print("🔧 Using custom YOLO training with COCO dict format for training loop compatibility")
     
     dataset, num_classes = get_dataset(args.dataset, is_train=True, is_val=False, args=args, output_format=output_format)
     dataset_test, _ = get_dataset(args.dataset, is_train=False, is_val=True, args=args, output_format=output_format)
