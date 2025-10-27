@@ -333,7 +333,10 @@ def main(args):
     # Enhanced model creation with better KITTI support using new yolomodels.py
     # Create YOLO model (YOLOv8 by default, supports v7, v8, v11, v12)
     # Use YAML configuration file path instead of model name
-    yaml_path = '/Developer/DeepDataMiningLearning/DeepDataMiningLearning/detection/modules/yolov8.yaml'
+    # Use args.model which can be a YAML path or model name
+    yaml_path = args.model if args.model.endswith('.yaml') else os.path.join(
+        os.path.dirname(__file__), 'modules', f'{args.model}.yaml'
+    )
     
     # Create model with proper class configuration for KITTI
     if args.dataset in ["kitti", "kitti_yolo"]:
