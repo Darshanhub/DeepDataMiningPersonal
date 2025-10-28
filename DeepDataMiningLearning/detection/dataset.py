@@ -194,6 +194,7 @@ def get_dataset(datasetname, is_train, is_val, args, output_format="torch", img_
     # if img_size is None:
     #     img_size = getattr(args, 'img_size', 640)  # Default to 640 if not found
     
+    max_images = getattr(args, 'max_images', None)
     
     if datasetname.lower() == 'coco':
         ds, num_classes = get_cocodataset(is_train, args.data_path, args.dataset, output_format, img_size)
@@ -202,7 +203,7 @@ def get_dataset(datasetname, is_train, is_val, args, output_format="torch", img_
     elif datasetname.lower() == 'kitti_yolo':
         ds, num_classes = get_kittiyolodataset(is_train, is_val, args, output_format, img_size)
     elif datasetname.lower() == 'waymococo':
-        ds, num_classes = get_waymococodataset(is_train, is_val, args.data_path, args.annotationfile, output_format, img_size)
+        ds, num_classes = get_waymococodataset(is_train, is_val, args.data_path, args.annotationfile, output_format, img_size, max_images=max_images)
     elif datasetname.lower() == 'yolo':
         ds, num_classes = get_yolodataset(is_train, is_val, args, output_format, img_size)
     return ds, num_classes
@@ -515,7 +516,7 @@ from pycocotools.coco import COCO
 from torch.utils.data import Subset
 import torch
 
-def _split_coco_json(input_json, output_dir, val_ratio=0.2, seed=42):
+def _split_coco_json(input_json, output_dir, val_ratio=0.2, seed=42, max_images=None):
     """
     Split a single COCO JSON file into train/val JSON files.
 
@@ -524,6 +525,7 @@ def _split_coco_json(input_json, output_dir, val_ratio=0.2, seed=42):
         output_dir (str): Directory to save split files.
         val_ratio (float): Fraction of images to use for validation.
         seed (int): Random seed for reproducibility.
+        max_images (int or None): Maximum number of images to use (None = use all).
 
     Returns:
         (str, str): paths to train_json, val_json
@@ -532,6 +534,11 @@ def _split_coco_json(input_json, output_dir, val_ratio=0.2, seed=42):
     coco = COCO(input_json)
     img_ids = list(coco.imgs.keys())
     random.shuffle(img_ids)
+    
+    # Limit to max_images if specified
+    if max_images is not None and max_images < len(img_ids):
+        img_ids = img_ids[:max_images]
+        print(f"[INFO] Limiting dataset to {max_images} images (out of {len(coco.imgs)} total)")
 
     split_idx = int(len(img_ids) * (1 - val_ratio))
     train_ids, val_ids = img_ids[:split_idx], img_ids[split_idx:]
@@ -563,17 +570,19 @@ def _split_coco_json(input_json, output_dir, val_ratio=0.2, seed=42):
     return train_json, val_json
 
 
-def get_waymococodataset(is_train, is_val, data_path, annotationfile, output_format="torch", img_size=640, val_ratio=0.1):
+def get_waymococodataset(is_train, is_val, data_path, annotationfile, output_format="torch", img_size=640, val_ratio=0.1, max_images=None):
     """
     Automatically detect or generate train/val splits for Waymo COCO dataset.
 
     Args:
         is_train (bool): whether to return the training dataset.
         is_val (bool):   whether to return the validation dataset.
-        args:            must contain args.data_path (root dir) and args.annotationfile.
+        data_path:       root directory path.
+        annotationfile:  path to COCO annotation file.
         output_format (str): description of output format, not used.
         img_size (int):  target resize for transforms.
         val_ratio (float): fraction of images to use for validation if splitting.
+        max_images (int or None): maximum number of images to use (None = use all).
     """
     rootPath = data_path
     annotation = annotationfile
@@ -585,7 +594,7 @@ def get_waymococodataset(is_train, is_val, data_path, annotationfile, output_for
     # --- Step 1: Detect if split files already exist ---
     if not (os.path.exists(train_split_path) and os.path.exists(val_split_path)):
         print("[INFO] Train/val split files not found. Generating new split...")
-        _split_coco_json(annotation, rootPath, val_ratio=val_ratio)
+        _split_coco_json(annotation, rootPath, val_ratio=val_ratio, max_images=max_images)
     else:
         print("[INFO] Found existing train/val split files in rootPath. Reusing them.")
 
