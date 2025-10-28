@@ -381,6 +381,19 @@ def main(args):
     # dataset_test.transform = get_transform(is_train=False, args=args)
     print("train set len:", len(dataset))
     print("Test set len:", len(dataset_test))
+    
+    # Validate dataset sizes
+    if len(dataset) == 0:
+        raise ValueError("❌ ERROR: Training dataset is empty!")
+    if len(dataset_test) == 0:
+        raise ValueError("❌ ERROR: Validation dataset is empty!")
+    
+    # Check and warn about batch size issues
+    if len(dataset) < args.batch_size:
+        print(f"\n⚠️  WARNING: Training dataset ({len(dataset)}) is smaller than batch size ({args.batch_size})")
+        print(f"    This will create only 1 incomplete batch or 0 batches with drop_last=True")
+        print(f"    Recommendation: Use --batch-size {len(dataset)} or increase --max-images\n")
+    
     #visualize_dataset_sample(dataset, sample_idx=0, save_path="datasetcoco_trainsample.jpg")
     visualize_dataset_sample(dataset_test, save_path="datasetcoco_valsample.jpg")
 
@@ -396,7 +409,27 @@ def main(args):
         group_ids = create_aspect_ratio_groups(dataset, k=args.aspect_ratio_group_factor)
         train_batch_sampler = GroupedBatchSampler(train_sampler, group_ids, args.batch_size)
     else:
-        train_batch_sampler = torch.utils.data.BatchSampler(train_sampler, args.batch_size, drop_last=True)
+        # Only drop last batch if we have enough data to form at least one complete batch
+        # Otherwise we'd end up with zero batches!
+        drop_last = len(dataset) > args.batch_size
+        train_batch_sampler = torch.utils.data.BatchSampler(train_sampler, args.batch_size, drop_last=drop_last)
+        
+        # Calculate actual number of batches
+        if drop_last:
+            num_batches = len(dataset) // args.batch_size
+        else:
+            num_batches = (len(dataset) + args.batch_size - 1) // args.batch_size
+        
+        print(f"📊 Training config: {num_batches} batches (dataset={len(dataset)}, batch_size={args.batch_size}, drop_last={drop_last})")
+        
+        # Safety check: prevent zero batches
+        if num_batches == 0:
+            raise ValueError(
+                f"❌ FATAL: Zero training batches!\n"
+                f"   Dataset size: {len(dataset)}\n"
+                f"   Batch size: {args.batch_size}\n"
+                f"   Solution: Use --batch-size {max(1, len(dataset))} or increase --max-images"
+            )
 
     train_collate_fn = utils.collate_fn
     data_loader = torch.utils.data.DataLoader(
