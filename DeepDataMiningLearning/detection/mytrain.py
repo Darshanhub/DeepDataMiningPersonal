@@ -529,7 +529,7 @@ def main(args):
         #     collate_fn=lambda x: tuple(zip(*x)),
         # )
         #simplemodelevaluate(model, data_loader_test, device=device)
-        if hasattr(dataset, "coco_class_map") and (len(model_classes) == 91 or len(model_classes) == 80):
+        if hasattr(dataset, "coco_class_map") and model_classes is not None and (len(model_classes) == 91 or len(model_classes) == 80):
             simplemodelevaluate(model, data_loader_test, device, class_map=dataset.coco_class_map, class_names=dataset.CLASSES, DEBUG=args.debugmode)
         else:
             #simplemodelevaluate(model, data_loader_test, device)
