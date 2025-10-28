@@ -244,7 +244,10 @@ class MyBackboneWithFPN_CBAM(nn.Module):
     
     def _add_cbam_to_layer(self, layer: nn.Module, channels: int, reduction: int) -> nn.Sequential:
         """
-        Add CBAM attention module after each bottleneck block in a ResNet layer.
+        Add a single CBAM attention module after the entire ResNet layer.
+        
+        This follows the standard CBAM paper approach: one attention module per stage,
+        not after every bottleneck block (which would be too memory-intensive).
         
         Args:
             layer: ResNet layer (Sequential of Bottleneck blocks)
@@ -252,19 +255,11 @@ class MyBackboneWithFPN_CBAM(nn.Module):
             reduction: CBAM channel reduction ratio
         
         Returns:
-            nn.Sequential: Enhanced layer with CBAM modules
+            nn.Sequential: Original layer followed by a single CBAM module
         """
-        enhanced_blocks = []
-        
-        for i, block in enumerate(layer):
-            # Add the original bottleneck block
-            enhanced_blocks.append(block)
-            
-            # Add CBAM attention after the block
-            cbam = CBAM(channels, reduction=reduction)
-            enhanced_blocks.append(cbam)
-        
-        return nn.Sequential(*enhanced_blocks)
+        # Add a single CBAM after the entire layer (not after each block)
+        cbam = CBAM(channels, reduction=reduction)
+        return nn.Sequential(layer, cbam)
     
     def forward(self, x: Tensor) -> Dict[str, Tensor]:
         """
