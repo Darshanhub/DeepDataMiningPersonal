@@ -164,6 +164,9 @@ def get_args_parser(add_help=True):
     parser.add_argument("--load-default-model", action="store_true", help="Load default pretrained model without changing class numbers")
     parser.add_argument("--use-coco-mapping", action="store_true", help="Use COCO class mapping during evaluation for mAP calculation")
     
+    # Dataset subset options for quick testing
+    parser.add_argument("--max-train-samples", default=None, type=int, help="Limit training to first N samples (useful for quick validation)")
+    parser.add_argument("--max-val-samples", default=None, type=int, help="Limit validation to first N samples (useful for quick validation)")
 
     return parser
 
@@ -267,6 +270,19 @@ def main(args):
     
     dataset, num_classes = get_dataset(args.dataset, is_train=True, is_val=False, args=args, output_format=output_format)
     dataset_test, _ = get_dataset(args.dataset, is_train=False, is_val=True, args=args, output_format=output_format)
+
+    # Apply dataset subsetting if requested (useful for quick validation)
+    if args.max_train_samples is not None and args.max_train_samples < len(dataset):
+        from torch.utils.data import Subset
+        train_indices = list(range(args.max_train_samples))
+        dataset = Subset(dataset, train_indices)
+        print(f"🔍 Using subset of training data: {len(dataset)} / {args.max_train_samples} requested")
+    
+    if args.max_val_samples is not None and args.max_val_samples < len(dataset_test):
+        from torch.utils.data import Subset
+        val_indices = list(range(args.max_val_samples))
+        dataset_test = Subset(dataset_test, val_indices)
+        print(f"🔍 Using subset of validation data: {len(dataset_test)} / {args.max_val_samples} requested")
 
     print(f"Dataset: {args.dataset}")
     print(f"Number of classes: {num_classes}")
