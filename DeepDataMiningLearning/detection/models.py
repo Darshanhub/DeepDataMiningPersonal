@@ -219,8 +219,38 @@ def create_detectionmodel(modelname, num_classes=None, nocustomize=False, traina
         if x[0]== 'customrcnn' and x[1].startswith('resnet'):
             backbonename = x[1]
             
+            # Check if Multi-Task Learning variant is requested
+            if '_mtl' in modelname.lower():
+                from DeepDataMiningLearning.detection.multitask_heads import wrap_model_for_multitask
+                
+                print(f"\n🎯 [MODEL] Creating CustomRCNN with Multi-Task Learning")
+                print(f"   Backbone: {backbonename}")
+                print(f"   Trainable layers: {trainable_layers}")
+                print(f"   Tasks: Object Detection + Semantic Segmentation + Depth Estimation")
+                
+                # First create base detection model
+                base_model = CustomRCNN(
+                    backbone_modulename=backbonename,
+                    trainable_layers=trainable_layers,
+                    num_classes=num_classes,
+                    out_channels=256,
+                    min_size=800,
+                    max_size=1333
+                )
+                
+                # Wrap with multi-task learning heads
+                model = wrap_model_for_multitask(
+                    detection_model=base_model,
+                    num_seg_classes=num_classes,  # Same classes for segmentation
+                    enable_segmentation=True,
+                    enable_depth=True,
+                    seg_weight=1.0,
+                    depth_weight=0.5
+                )
+                print(f"✅ [MODEL] Multi-Task Learning model created successfully")
+            
             # Check if CBAM variant is requested
-            if '_cbam' in modelname.lower():
+            elif '_cbam' in modelname.lower():
                 if not CBAM_BACKBONE_AVAILABLE:
                     raise ImportError(
                         "CBAM backbone requested but not available. "
@@ -244,7 +274,7 @@ def create_detectionmodel(modelname, num_classes=None, nocustomize=False, traina
                 )
                 print(f"✅ [MODEL] CustomRCNN with CBAM created successfully")
             else:
-                # Standard CustomRCNN without CBAM
+                # Standard CustomRCNN without CBAM or MTL
                 model = CustomRCNN(
                     backbone_modulename=backbonename,
                     trainable_layers=trainable_layers,

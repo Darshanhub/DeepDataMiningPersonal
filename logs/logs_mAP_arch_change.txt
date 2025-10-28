@@ -1,0 +1,661 @@
+remote: Enumerating objects: 9, done.
+remote: Counting objects: 100% (9/9), done.
+remote: Compressing objects: 100% (1/1), done.
+remote: Total 5 (delta 4), reused 5 (delta 4), pack-reused 0 (from 0)
+Unpacking objects: 100% (5/5), 455 bytes | 227.00 KiB/s, done.
+From https://github.com/Darshanhub/DeepDataMiningPersonal
+   28fda12..9f52a2d  main       -> origin/main
+Updating 28fda12..9f52a2d
+Fast-forward
+ DeepDataMiningLearning/detection/mytrain.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+Warning: Open3D not available. 3D LiDAR visualization will be disabled.
+Warning: Mayavi visualization utils not available. Some 3D visualization features may not work.
+✅ KITTI utilities loaded successfully
+Namespace(data_path='/content/gdrive/MyDrive/data/ias_assignment_1/Copy_of_images/unzipped', annotationfile='/content/gdrive/MyDrive/data/ias_assignment_1/Copy_of_images/unzipped/Copy_of_annotations.json', dataset='waymococo', model='customrcnn_resnet152_cbam', nocustomize=False, trainable=0, device='cuda', batch_size=32, epochs=60, saveeveryepoch=4, max_images=None, workers=16, opt='sgd', lr=0.02, momentum=0.9, weight_decay=0.0001, norm_weight_decay=None, lr_scheduler='multisteplr', lr_step_size=8, lr_steps=[16, 22], lr_gamma=0.1, print_freq=5, output_dir='/content/waymooutput/waymococo/1005', resume='/content/waymooutput/waymococo/full_10k_resnet152_cbam_maxgpu/model_30.pth', start_epoch=0, aspect_ratio_group_factor=-1, rpn_score_thresh=None, data_augmentation='hflip', sync_bn=False, test_only=True, debugmode=False, use_deterministic_algorithms=False, multigpu=False, world_size=4, dist_url='env://', weights=None, weights_backbone=None, amp=False, backend='pil', use_v2=False, expname='1005', distributed=False)
+Loading data
+[INFO] Found existing train/val split files in rootPath. Reusing them.
+loading annotations into memory...
+Done (t=0.80s)
+creating index...
+index created!
+✅ Waymo COCO training set loaded: 9000 samples, 5 classes, img_size=None
+[INFO] Found existing train/val split files in rootPath. Reusing them.
+loading annotations into memory...
+Done (t=0.10s)
+creating index...
+index created!
+✅ Waymo COCO validation set loaded: 1000 samples, 5 classes, img_size=None
+train set len: 9000
+Test set len: 1000
+
+=== Dataset Sample Info ===
+Index: 151
+Image size: 1920x1280
+Image type: <class 'PIL.Image.Image'>
+Target type: <class 'dict'>
+Target keys: ['boxes', 'labels', 'image_id', 'area', 'iscrowd']
+Detected COCO dataset: loaded 4 category names.
+Detected dataset format: Custom dict-based dataset
+Number of boxes: 25
+Label sample: [1, 1, 1, 1, 2]
+Detected xyxy format boxes (no conversion needed).
+[INFO] Saved visualization to: datasetcoco_valsample.jpg
+Creating data loaders
+📊 Training config: 281 batches (dataset=9000, batch_size=32, drop_last=True)
+/usr/local/lib/python3.12/dist-packages/torch/utils/data/dataloader.py:627: UserWarning: This DataLoader will create 16 worker processes in total. Our suggested max number of worker in current system is 12, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(
+Creating model
+
+🔍 [MODEL] Creating CustomRCNN with CBAM attention
+   Backbone: resnet152
+   Trainable layers: 0
+   CBAM will be added to: layer3, layer4
+
+🔍 [CBAM] Adding attention modules to: ['layer3', 'layer4']
+✅ [CBAM] Added to layer3 (1024 channels, reduction=16)
+✅ [CBAM] Added to layer4 (2048 channels, reduction=16)
+✅ [CustomRCNN] Using CBAM-enhanced backbone
+✅ [MODEL] CustomRCNN with CBAM created successfully
+=================================================================================================================================================
+Layer (type (var_name))                                           Input Shape          Output Shape         Param #              Trainable
+=================================================================================================================================================
+CustomRCNN (CustomRCNN)                                           [32, 3, 224, 224]    [100, 4]             --                   Partial
+├─DetectionTransform (detcttransform)                             [32, 3, 224, 224]    [32, 3, 800, 800]    --                   --
+├─MyBackboneWithFPN_CBAM (backbone)                               [32, 3, 800, 800]    [32, 256, 13, 13]    --                   Partial
+│    └─IntermediateLayerGetter (body)                             [32, 3, 800, 800]    [32, 2048, 25, 25]   --                   Partial
+│    │    └─Conv2d (conv1)                                        [32, 3, 800, 800]    [32, 64, 400, 400]   (9,408)              False
+│    │    └─BatchNorm2d (bn1)                                     [32, 64, 400, 400]   [32, 64, 400, 400]   (128)                False
+│    │    └─ReLU (relu)                                           [32, 64, 400, 400]   [32, 64, 400, 400]   --                   --
+│    │    └─MaxPool2d (maxpool)                                   [32, 64, 400, 400]   [32, 64, 200, 200]   --                   --
+│    │    └─Sequential (layer1)                                   [32, 64, 200, 200]   [32, 256, 200, 200]  (215,808)            False
+│    │    └─Sequential (layer2)                                   [32, 256, 200, 200]  [32, 512, 100, 100]  (2,339,840)          False
+│    │    └─Sequential (layer3)                                   [32, 512, 100, 100]  [32, 1024, 50, 50]   40,745,058           Partial
+│    │    └─Sequential (layer4)                                   [32, 1024, 50, 50]   [32, 2048, 25, 25]   15,489,122           Partial
+│    └─FeaturePyramidNetwork (fpn)                                [32, 256, 200, 200]  [32, 256, 13, 13]    --                   True
+│    │    └─ModuleList (inner_blocks)                             --                   --                   (recursive)          True
+│    │    └─ModuleList (layer_blocks)                             --                   --                   (recursive)          True
+│    │    └─ModuleList (inner_blocks)                             --                   --                   (recursive)          True
+│    │    └─ModuleList (layer_blocks)                             --                   --                   (recursive)          True
+│    │    └─ModuleList (inner_blocks)                             --                   --                   (recursive)          True
+│    │    └─ModuleList (layer_blocks)                             --                   --                   (recursive)          True
+│    │    └─ModuleList (inner_blocks)                             --                   --                   (recursive)          True
+│    │    └─ModuleList (layer_blocks)                             --                   --                   (recursive)          True
+│    │    └─LastLevelMaxPool (extra_blocks)                       [32, 256, 200, 200]  [32, 256, 200, 200]  --                   --
+├─RegionProposalNetwork (rpn)                                     [32, 3, 800, 800]    [1000, 4]            --                   True
+│    └─RPNHead (head)                                             [32, 256, 200, 200]  [32, 3, 200, 200]    --                   True
+│    │    └─Sequential (conv)                                     [32, 256, 200, 200]  [32, 256, 200, 200]  590,080              True
+│    │    └─Conv2d (cls_logits)                                   [32, 256, 200, 200]  [32, 3, 200, 200]    771                  True
+│    │    └─Conv2d (bbox_pred)                                    [32, 256, 200, 200]  [32, 12, 200, 200]   3,084                True
+│    │    └─Sequential (conv)                                     [32, 256, 100, 100]  [32, 256, 100, 100]  (recursive)          True
+│    │    └─Conv2d (cls_logits)                                   [32, 256, 100, 100]  [32, 3, 100, 100]    (recursive)          True
+│    │    └─Conv2d (bbox_pred)                                    [32, 256, 100, 100]  [32, 12, 100, 100]   (recursive)          True
+│    │    └─Sequential (conv)                                     [32, 256, 50, 50]    [32, 256, 50, 50]    (recursive)          True
+│    │    └─Conv2d (cls_logits)                                   [32, 256, 50, 50]    [32, 3, 50, 50]      (recursive)          True
+│    │    └─Conv2d (bbox_pred)                                    [32, 256, 50, 50]    [32, 12, 50, 50]     (recursive)          True
+│    │    └─Sequential (conv)                                     [32, 256, 25, 25]    [32, 256, 25, 25]    (recursive)          True
+│    │    └─Conv2d (cls_logits)                                   [32, 256, 25, 25]    [32, 3, 25, 25]      (recursive)          True
+│    │    └─Conv2d (bbox_pred)                                    [32, 256, 25, 25]    [32, 12, 25, 25]     (recursive)          True
+│    │    └─Sequential (conv)                                     [32, 256, 13, 13]    [32, 256, 13, 13]    (recursive)          True
+│    │    └─Conv2d (cls_logits)                                   [32, 256, 13, 13]    [32, 3, 13, 13]      (recursive)          True
+│    │    └─Conv2d (bbox_pred)                                    [32, 256, 13, 13]    [32, 12, 13, 13]     (recursive)          True
+│    └─AnchorGenerator (anchor_generator)                         [32, 3, 800, 800]    [159882, 4]          --                   --
+├─RoIHeads (roi_heads)                                            [32, 256, 200, 200]  [100, 4]             --                   True
+│    └─MultiScaleRoIAlign (box_roi_pool)                          [32, 256, 200, 200]  [32000, 256, 7, 7]   --                   --
+│    └─TwoMLPHead (box_head)                                      [32000, 256, 7, 7]   [32000, 1024]        --                   True
+│    │    └─Linear (fc6)                                          [32000, 12544]       [32000, 1024]        12,846,080           True
+│    │    └─Linear (fc7)                                          [32000, 1024]        [32000, 1024]        1,049,600            True
+│    └─FastRCNNPredictor (box_predictor)                          [32000, 1024]        [32000, 5]           --                   True
+│    │    └─Linear (cls_score)                                    [32000, 1024]        [32000, 5]           5,125                True
+│    │    └─Linear (bbox_pred)                                    [32000, 1024]        [32000, 20]          20,500               True
+=================================================================================================================================================
+Total params: 76,658,988
+Trainable params: 18,515,180
+Non-trainable params: 58,143,808
+Total mult-adds (Units.TERABYTES): 7.32
+=================================================================================================================================================
+Input size (MB): 19.27
+Forward/backward pass size (MB): 158485.84
+Params size (MB): 306.64
+Estimated Total Size (MB): 158811.75
+=================================================================================================================================================
+
+[INFO] Starting evaluation on device: cuda
+Converting dataset to COCO format...
+Building COCO dataset: 100% 1000/1000 [00:27<00:00, 36.29it/s]
+creating index...
+index created!
+[INFO] Finished COCO conversion: 1000 images, 22980 annotations, 3 categories.
+GT categories: [1, 2, 4]
+Evaluating:   0% 0/1000 [00:00<?, ?batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 11, Predictions: 10
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/6_xyxy.jpg
+
+Evaluating:   0% 1/1000 [00:00<12:04,  1.38batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 4, Predictions: 8
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/9_xyxy.jpg
+
+Evaluating:   0% 2/1000 [00:01<09:06,  1.83batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 10, Predictions: 12
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/18_xyxy.jpg
+
+Evaluating:   0% 3/1000 [00:01<08:18,  2.00batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 14, Predictions: 16
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/27_xyxy.jpg
+
+Evaluating:   0% 4/1000 [00:02<08:08,  2.04batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 14, Predictions: 21
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/35_xyxy.jpg
+
+Evaluating:   0% 5/1000 [00:02<10:46,  1.54batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 13, Predictions: 13
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/42_xyxy.jpg
+
+Evaluating:   1% 6/1000 [00:03<09:40,  1.71batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 13, Predictions: 17
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/43_xyxy.jpg
+
+Evaluating:   1% 7/1000 [00:03<09:03,  1.83batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 13, Predictions: 14
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/53_xyxy.jpg
+
+Evaluating:   1% 8/1000 [00:04<08:36,  1.92batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 13, Predictions: 16
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/58_xyxy.jpg
+
+Evaluating:   1% 9/1000 [00:04<08:19,  1.99batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 10, Predictions: 9
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/90_xyxy.jpg
+
+Evaluating:   1% 10/1000 [00:05<07:55,  2.08batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 10, Predictions: 20
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/96_xyxy.jpg
+
+Evaluating:   1% 11/1000 [00:05<07:54,  2.09batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 49, Predictions: 45
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/106_xyxy.jpg
+
+Evaluating:   1% 12/1000 [00:06<08:39,  1.90batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 49, Predictions: 47
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/117_xyxy.jpg
+
+Evaluating:   1% 13/1000 [00:07<09:14,  1.78batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 1, Predictions: 4
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/128_xyxy.jpg
+
+Evaluating:   1% 14/1000 [00:07<08:40,  1.89batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 49, Predictions: 48
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/152_xyxy.jpg
+
+Evaluating:   2% 15/1000 [00:08<09:16,  1.77batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 47, Predictions: 36
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/158_xyxy.jpg
+
+Evaluating:   2% 16/1000 [00:08<09:28,  1.73batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 48, Predictions: 40
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/166_xyxy.jpg
+
+Evaluating:   2% 17/1000 [00:09<09:41,  1.69batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 47, Predictions: 43
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/188_xyxy.jpg
+
+Evaluating:   2% 18/1000 [00:10<09:57,  1.64batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.020, 1.000]
+[DEBUG] Ground-truth: 14, Predictions: 11
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/200_xyxy.jpg
+
+Evaluating:   2% 19/1000 [00:10<09:15,  1.77batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.008, 1.000]
+[DEBUG] Ground-truth: 13, Predictions: 12
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/207_xyxy.jpg
+
+Evaluating:   2% 20/1000 [00:10<08:40,  1.88batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.020, 1.000]
+[DEBUG] Ground-truth: 14, Predictions: 14
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/224_xyxy.jpg
+
+Evaluating:   2% 21/1000 [00:11<08:17,  1.97batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 13, Predictions: 13
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/231_xyxy.jpg
+
+Evaluating:   2% 22/1000 [00:11<08:02,  2.03batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.039, 1.000]
+[DEBUG] Ground-truth: 12, Predictions: 15
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/241_xyxy.jpg
+
+Evaluating:   2% 23/1000 [00:12<07:54,  2.06batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.024, 1.000]
+[DEBUG] Ground-truth: 14, Predictions: 13
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/251_xyxy.jpg
+
+Evaluating:   2% 24/1000 [00:12<07:47,  2.09batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 22, Predictions: 16
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/282_xyxy.jpg
+
+Evaluating:   2% 25/1000 [00:13<07:47,  2.08batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 17, Predictions: 24
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/317_xyxy.jpg
+
+Evaluating:   3% 26/1000 [00:13<07:52,  2.06batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 17, Predictions: 22
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/319_xyxy.jpg
+
+Evaluating:   3% 27/1000 [00:14<07:52,  2.06batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 16, Predictions: 26
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/320_xyxy.jpg
+
+Evaluating:   3% 28/1000 [00:14<08:00,  2.02batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 18, Predictions: 30
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/333_xyxy.jpg
+
+Evaluating:   3% 29/1000 [00:15<08:10,  1.98batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 19, Predictions: 20
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/339_xyxy.jpg
+
+Evaluating:   3% 30/1000 [00:15<08:08,  1.98batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 16, Predictions: 26
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/344_xyxy.jpg
+
+Evaluating:   3% 31/1000 [00:16<08:09,  1.98batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 2, Predictions: 5
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/387_xyxy.jpg
+
+Evaluating:   3% 32/1000 [00:16<07:42,  2.10batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 18, Predictions: 20
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/400_xyxy.jpg
+
+Evaluating:   3% 33/1000 [00:17<07:43,  2.09batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 47, Predictions: 56
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/406_xyxy.jpg
+
+Evaluating:   3% 34/1000 [00:17<08:36,  1.87batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.008, 1.000]
+[DEBUG] Ground-truth: 40, Predictions: 47
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/409_xyxy.jpg
+
+Evaluating:   4% 35/1000 [00:18<09:05,  1.77batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 54, Predictions: 63
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/420_xyxy.jpg
+
+Evaluating:   4% 36/1000 [00:19<09:44,  1.65batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 62, Predictions: 55
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/423_xyxy.jpg
+
+Evaluating:   4% 37/1000 [00:20<12:27,  1.29batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 51, Predictions: 60
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/434_xyxy.jpg
+
+Evaluating:   4% 38/1000 [00:21<12:01,  1.33batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 56, Predictions: 64
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/441_xyxy.jpg
+
+Evaluating:   4% 39/1000 [00:21<11:53,  1.35batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 63, Predictions: 59
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/444_xyxy.jpg
+
+Evaluating:   4% 40/1000 [00:22<11:45,  1.36batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 65, Predictions: 63
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/452_xyxy.jpg
+
+Evaluating:   4% 41/1000 [00:23<11:44,  1.36batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 69, Predictions: 80
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/470_xyxy.jpg
+
+Evaluating:   4% 42/1000 [00:24<11:58,  1.33batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 69, Predictions: 71
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/472_xyxy.jpg
+
+Evaluating:   4% 43/1000 [00:24<12:00,  1.33batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 70, Predictions: 80
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/475_xyxy.jpg
+
+Evaluating:   4% 44/1000 [00:25<12:08,  1.31batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 70, Predictions: 76
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/488_xyxy.jpg
+
+Evaluating:   4% 45/1000 [00:26<12:12,  1.30batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.098, 1.000]
+[DEBUG] Ground-truth: 9, Predictions: 17
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/508_xyxy.jpg
+
+Evaluating:   5% 46/1000 [00:26<10:49,  1.47batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.078, 1.000]
+[DEBUG] Ground-truth: 10, Predictions: 11
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/514_xyxy.jpg
+
+Evaluating:   5% 47/1000 [00:27<09:41,  1.64batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.098, 1.000]
+[DEBUG] Ground-truth: 7, Predictions: 11
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/520_xyxy.jpg
+
+Evaluating:   5% 48/1000 [00:27<08:54,  1.78batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 6, Predictions: 5
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/525_xyxy.jpg
+
+Evaluating:   5% 49/1000 [00:28<08:10,  1.94batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.012, 1.000]
+[DEBUG] Ground-truth: 5, Predictions: 6
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/534_xyxy.jpg
+
+Evaluating:   5% 50/1000 [00:28<07:40,  2.06batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.043, 1.000]
+[DEBUG] Ground-truth: 6, Predictions: 9
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/588_xyxy.jpg
+
+Evaluating:   5% 51/1000 [00:28<07:28,  2.11batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.051, 1.000]
+[DEBUG] Ground-truth: 5, Predictions: 7
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/590_xyxy.jpg
+
+Evaluating:   5% 52/1000 [00:29<07:11,  2.20batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.071, 1.000]
+[DEBUG] Ground-truth: 18, Predictions: 11
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/601_xyxy.jpg
+
+Evaluating:   5% 53/1000 [00:29<07:12,  2.19batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.043, 1.000]
+[DEBUG] Ground-truth: 1, Predictions: 1
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/606_xyxy.jpg
+
+Evaluating:   5% 54/1000 [00:30<06:59,  2.26batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.012, 1.000]
+[DEBUG] Ground-truth: 23, Predictions: 28
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/626_xyxy.jpg
+
+Evaluating:   6% 55/1000 [00:30<07:21,  2.14batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.047, 1.000]
+[DEBUG] Ground-truth: 19, Predictions: 32
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/634_xyxy.jpg
+
+Evaluating:   6% 56/1000 [00:31<07:36,  2.07batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 15, Predictions: 21
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/651_xyxy.jpg
+
+Evaluating:   6% 57/1000 [00:31<07:36,  2.07batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 15, Predictions: 13
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/653_xyxy.jpg
+
+Evaluating:   6% 58/1000 [00:32<07:28,  2.10batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.012, 1.000]
+[DEBUG] Ground-truth: 12, Predictions: 9
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/659_xyxy.jpg
+
+Evaluating:   6% 59/1000 [00:32<07:17,  2.15batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 13, Predictions: 15
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/672_xyxy.jpg
+
+Evaluating:   6% 60/1000 [00:33<07:16,  2.15batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.016, 1.000]
+[DEBUG] Ground-truth: 8, Predictions: 5
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/685_xyxy.jpg
+
+Evaluating:   6% 61/1000 [00:33<07:02,  2.22batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 18, Predictions: 33
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/711_xyxy.jpg
+
+Evaluating:   6% 62/1000 [00:34<07:26,  2.10batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 18, Predictions: 30
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/715_xyxy.jpg
+
+Evaluating:   6% 63/1000 [00:34<07:37,  2.05batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 18, Predictions: 26
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/722_xyxy.jpg
+
+Evaluating:   6% 64/1000 [00:35<07:44,  2.02batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 17, Predictions: 30
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/727_xyxy.jpg
+
+Evaluating:   6% 65/1000 [00:35<07:48,  2.00batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 22, Predictions: 22
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/745_xyxy.jpg
+
+Evaluating:   7% 66/1000 [00:36<07:47,  2.00batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 22, Predictions: 28
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/750_xyxy.jpg
+
+Evaluating:   7% 67/1000 [00:37<10:13,  1.52batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 17, Predictions: 25
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/757_xyxy.jpg
+
+Evaluating:   7% 68/1000 [00:37<09:27,  1.64batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 15, Predictions: 31
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/771_xyxy.jpg
+
+Evaluating:   7% 69/1000 [00:38<08:59,  1.73batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 30, Predictions: 48
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/821_xyxy.jpg
+
+Evaluating:   7% 70/1000 [00:38<09:03,  1.71batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 30, Predictions: 55
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/822_xyxy.jpg
+
+Evaluating:   7% 71/1000 [00:39<09:12,  1.68batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 30, Predictions: 44
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/823_xyxy.jpg
+
+Evaluating:   7% 72/1000 [00:39<09:11,  1.68batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 29, Predictions: 43
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/828_xyxy.jpg
+
+Evaluating:   7% 73/1000 [00:40<09:09,  1.69batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 30, Predictions: 47
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/832_xyxy.jpg
+
+Evaluating:   7% 74/1000 [00:41<09:10,  1.68batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 32, Predictions: 50
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/841_xyxy.jpg
+
+Evaluating:   8% 75/1000 [00:41<09:13,  1.67batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 31, Predictions: 57
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/845_xyxy.jpg
+
+Evaluating:   8% 76/1000 [00:42<09:20,  1.65batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 30, Predictions: 47
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/853_xyxy.jpg
+
+Evaluating:   8% 77/1000 [00:43<09:15,  1.66batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 28, Predictions: 54
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/878_xyxy.jpg
+
+Evaluating:   8% 78/1000 [00:43<09:17,  1.65batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 26, Predictions: 36
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/887_xyxy.jpg
+
+Evaluating:   8% 79/1000 [00:44<09:02,  1.70batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 26, Predictions: 44
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/888_xyxy.jpg
+
+Evaluating:   8% 80/1000 [00:44<08:57,  1.71batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.024, 1.000]
+[DEBUG] Ground-truth: 1, Predictions: 2
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/893_xyxy.jpg
+
+Evaluating:   8% 81/1000 [00:45<08:01,  1.91batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.047, 1.000]
+[DEBUG] Ground-truth: 6, Predictions: 5
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/916_xyxy.jpg
+
+Evaluating:   8% 82/1000 [00:45<07:29,  2.04batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.027, 1.000]
+[DEBUG] Ground-truth: 4, Predictions: 5
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/931_xyxy.jpg
+
+Evaluating:   8% 83/1000 [00:45<07:05,  2.15batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 4, Predictions: 3
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/936_xyxy.jpg
+
+Evaluating:   8% 84/1000 [00:46<06:47,  2.25batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 4, Predictions: 5
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/949_xyxy.jpg
+
+Evaluating:   8% 85/1000 [00:46<06:35,  2.31batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.012, 1.000]
+[DEBUG] Ground-truth: 3, Predictions: 4
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/958_xyxy.jpg
+
+Evaluating:   9% 86/1000 [00:47<06:29,  2.35batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.043, 1.000]
+[DEBUG] Ground-truth: 3, Predictions: 3
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/960_xyxy.jpg
+
+Evaluating:   9% 87/1000 [00:47<06:21,  2.40batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.063, 1.000]
+[DEBUG] Ground-truth: 3, Predictions: 3
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/964_xyxy.jpg
+
+Evaluating:   9% 88/1000 [00:47<06:13,  2.44batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 4, Predictions: 4
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/977_xyxy.jpg
+
+Evaluating:   9% 89/1000 [00:48<06:10,  2.46batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 4, Predictions: 4
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/986_xyxy.jpg
+
+Evaluating:   9% 90/1000 [00:48<06:12,  2.44batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 7, Predictions: 16
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/993_xyxy.jpg
+
+Evaluating:   9% 91/1000 [00:49<06:26,  2.35batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 5, Predictions: 7
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/998_xyxy.jpg
+
+Evaluating:   9% 92/1000 [00:49<06:27,  2.34batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 2, Predictions: 7
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/1020_xyxy.jpg
+
+Evaluating:   9% 93/1000 [00:50<06:21,  2.38batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 2, Predictions: 3
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/1040_xyxy.jpg
+
+Evaluating:   9% 94/1000 [00:50<06:17,  2.40batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 2, Predictions: 9
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/1049_xyxy.jpg
+
+Evaluating:  10% 95/1000 [00:50<06:20,  2.38batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 3, Predictions: 2
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/1052_xyxy.jpg
+
+Evaluating:  10% 96/1000 [00:51<06:16,  2.40batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 4, Predictions: 10
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/1070_xyxy.jpg
+
+Evaluating:  10% 97/1000 [00:51<06:22,  2.36batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.000, 1.000]
+[DEBUG] Ground-truth: 4, Predictions: 18
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/1084_xyxy.jpg
+
+Evaluating:  10% 98/1000 [00:52<06:31,  2.30batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.141, 1.000]
+[DEBUG] Ground-truth: 25, Predictions: 24
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/1104_xyxy.jpg
+
+Evaluating:  10% 99/1000 [00:52<06:56,  2.16batch/s][DEBUG] Image tensor status: Unnormalized or already [0,1], range [0.114, 1.000]
+[DEBUG] Ground-truth: 30, Predictions: 35
+[DEBUG] GT box type=xyxy, Pred box type=xyxy
+[INFO] Visualization saved to output/debug_vis/1113_xyxy.jpg
+
+Evaluating: 100% 1000/1000 [01:38<00:00, 10.17batch/s]
+[INFO] Prepared predictions for 1000 images
+
+[INFO] Accumulating COCO metrics...
+Accumulating evaluation results...
+DONE (t=0.36s).
+IoU metric: bbox
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.216
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.404
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.208
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.045
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.281
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.511
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.085
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.214
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.262
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.075
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.340
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.579
+[INFO] Per-class AP computation...
+
+[INFO] Per-class AP summary (IoU=0.5:0.95):
+   1. 1                    (ID   1): AP = 0.324
+   2. 2                    (ID   2): AP = 0.175
+   3. 4                    (ID   4): AP = 0.148
+[INFO] Saved per-class AP summary to: output/debug_vis/coco_per_class_AP.csv
+[INFO] Saved global COCO metrics to: output/debug_vis/coco_global_metrics.csv
+
+[INFO] Evaluation complete for 1000 images
+  • Avg model inference time/batch : 0.0333s
+  • Avg COCOeval update time/batch : 0.0108s
+  • Visualizations saved to: /content/output/debug_vis
