@@ -303,7 +303,10 @@ def create_detectionmodel(modelname, num_classes=None, nocustomize=False, traina
     else:
         print('Model name not supported')
 
-    if model:
+    # Skip torchinfo summary for MTL models (causes issues with complex forward passes)
+    skip_summary = '_mtl' in modelname.lower() if modelname else False
+    
+    if model and not skip_summary:
         summary(model=model, 
             input_size=(32, 3, 224, 224), # make sure this is "input_size", not "input_shape"
             # col_names=["input_size"], # uncomment for smaller output
@@ -311,9 +314,11 @@ def create_detectionmodel(modelname, num_classes=None, nocustomize=False, traina
             col_width=20,
             row_settings=["var_names"]
         ) 
-        if device:
-            currentdevice=next(model.parameters()).device #simply getting the device name for the first parameter of the nn module
-            model=model.to(device)
+    
+    if model and device:
+        currentdevice=next(model.parameters()).device #simply getting the device name for the first parameter of the nn module
+        model=model.to(device)
+    
     return model, preprocess, classes
     
 

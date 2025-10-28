@@ -313,31 +313,50 @@ class MultiTaskWrapper(nn.Module):
         During inference:
             Returns detection predictions + auxiliary predictions
         """
-        # Get FPN features (before RPN)
-        # Need to access backbone features directly
-        if isinstance(images, list):
-            # Convert list of tensors to ImageList format
-            from DeepDataMiningLearning.detection.detectiontransform import DetectionTransform
-            transform = DetectionTransform(800, 1333)
-            images, targets = transform(images, targets)
-        
-        # Extract backbone features
-        features = self.detection_model.backbone(images.tensors)
+        # The detection model handles the image conversion internally
+        # Just pass through to the detection model first
         
         # 1. Object Detection (existing pipeline)
+        # This will handle image preprocessing and return either losses or predictions
         if self.training:
             # Training mode: get detection losses
-            detection_losses = self.detection_model(images.tensors if hasattr(images, 'tensors') else images, targets)
+            detection_output = self.detection_model(images, targets)
         else:
-            # Inference mode: get detection predictions
-            detection_output = self.detection_model(images.tensors if hasattr(images, 'tensors') else images, targets)
+            # Inference mode: get detection predictions  
+            detection_output = self.detection_model(images, targets)
         
-        # 2. Semantic Segmentation
+        # 2. Get FPN features for auxiliary tasks
+        # We need to re-extract features from the backbone
+        # Convert images to proper format if needed
+        if isinstance(images, list):
+            # Stack images into a batch tensor
+            # Pad to same size (simple version - take max dimensions)
+            max_h = max(img.shape[1] for img in images)
+            max_w = max(img.shape[2] for img in images)
+            
+            batch_images = []
+            for img in images:
+                if img.shape[1:] != (max_h, max_w):
+                    # Simple padding to max size
+                    padded = torch.zeros(img.shape[0], max_h, max_w, device=img.device, dtype=img.dtype)
+                    padded[:, :img.shape[1], :img.shape[2]] = img
+                    batch_images.append(padded)
+                else:
+                    batch_images.append(img)
+            
+            image_tensor = torch.stack(batch_images)
+        else:
+            image_tensor = images
+        
+        # Extract backbone features for auxiliary tasks
+        features = self.detection_model.backbone(image_tensor)
+        
+        # 3. Semantic Segmentation
         seg_output = {}
         if self.enable_segmentation:
             seg_output = self.seg_head(features, targets)
         
-        # 3. Depth Estimation
+        # 4. Depth Estimation
         depth_output = {}
         if self.enable_depth:
             depth_output = self.depth_head(features, targets)
@@ -348,8 +367,8 @@ class MultiTaskWrapper(nn.Module):
             losses = {}
             
             # Detection losses
-            if isinstance(detection_losses, dict):
-                losses.update(detection_losses)
+            if isinstance(detection_output, dict):
+                losses.update(detection_output)
             
             # Segmentation loss (weighted)
             if 'loss_segmentation' in seg_output:
