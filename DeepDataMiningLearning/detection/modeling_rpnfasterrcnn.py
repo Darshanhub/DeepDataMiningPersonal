@@ -1079,7 +1079,7 @@ class FastRCNNPredictor(nn.Module):
 
 class CustomRCNN(nn.Module):
     """
-    Implements Custom Faster R-CNN.
+    Implements Custom Faster R-CNN with optional CBAM attention.
 
     The input to the model is expected to be a list of tensors, each of shape [C, H, W], one for each
     image, and should be in 0-1 range. Different images can have different sizes.
@@ -1092,6 +1092,10 @@ class CustomRCNN(nn.Module):
 
     The model returns a Dict[Tensor] during training, containing the classification and regression
     losses for both the RPN and the R-CNN.
+    
+    Args:
+        use_cbam (bool): If True, use CBAM-enhanced backbone (default: False)
+        cbam_reduction (int): Channel reduction ratio for CBAM (default: 16)
 
     """
     def __init__(
@@ -1125,6 +1129,9 @@ class CustomRCNN(nn.Module):
         box_batch_size_per_image=512,
         box_positive_fraction=0.25,
         bbox_reg_weights=None,
+        # CBAM parameters
+        use_cbam=False,
+        cbam_reduction=16,
         ):
         super().__init__()
 
@@ -1140,9 +1147,26 @@ class CustomRCNN(nn.Module):
         #self.transform = GeneralizedRCNNTransform(min_size, max_size, image_mean, image_std)
         #It returns a ImageList for the inputs, and a List[Dict[Tensor]] for the targets
 
-        #Backbone
-        #self.body, self.fpn = self.create_fpnbackbone(backbone_modulename)
-        self.backbone = MyBackboneWithFPN(backbone_modulename,trainable_layers, out_channels)
+        #Backbone - choose between standard or CBAM-enhanced
+        self.use_cbam = use_cbam
+        if use_cbam:
+            try:
+                from DeepDataMiningLearning.detection.backbone import MyBackboneWithFPN_CBAM
+                self.backbone = MyBackboneWithFPN_CBAM(
+                    backbone_modulename, 
+                    trainable_layers, 
+                    out_channels,
+                    cbam_reduction=cbam_reduction
+                )
+                print(f"✅ [CustomRCNN] Using CBAM-enhanced backbone")
+            except ImportError as e:
+                print(f"[ERROR] CBAM backbone not available: {e}")
+                print(f"[INFO] Falling back to standard backbone")
+                self.backbone = MyBackboneWithFPN(backbone_modulename, trainable_layers, out_channels)
+                self.use_cbam = False
+        else:
+            self.backbone = MyBackboneWithFPN(backbone_modulename, trainable_layers, out_channels)
+        
         if not hasattr(self.backbone, "out_channels"):
             print("error")
         self.out_channels = self.backbone.out_channels #256

@@ -11,6 +11,14 @@ from DeepDataMiningLearning.detection.modeling_yolo import TorchvisionYoloModel
 import os
 from DeepDataMiningLearning.detection.modeling_rpnfasterrcnn import CustomRCNN
 
+# Import CBAM-enhanced backbone
+try:
+    from DeepDataMiningLearning.detection.backbone import MyBackboneWithFPN_CBAM
+    CBAM_BACKBONE_AVAILABLE = True
+except ImportError:
+    print("[WARNING] CBAM backbone not available")
+    CBAM_BACKBONE_AVAILABLE = False
+
 try:
     from torchinfo import summary
 except:
@@ -210,7 +218,42 @@ def create_detectionmodel(modelname, num_classes=None, nocustomize=False, traina
         x = modelname.split("_")
         if x[0]== 'customrcnn' and x[1].startswith('resnet'):
             backbonename = x[1]
-            model=CustomRCNN(backbone_modulename=backbonename,trainable_layers=trainable_layers,num_classes=num_classes,out_channels=256,min_size=800,max_size=1333)
+            
+            # Check if CBAM variant is requested
+            if '_cbam' in modelname.lower():
+                if not CBAM_BACKBONE_AVAILABLE:
+                    raise ImportError(
+                        "CBAM backbone requested but not available. "
+                        "Please ensure attention_modules.py and MyBackboneWithFPN_CBAM are properly installed."
+                    )
+                print(f"\n🔍 [MODEL] Creating CustomRCNN with CBAM attention")
+                print(f"   Backbone: {backbonename}")
+                print(f"   Trainable layers: {trainable_layers}")
+                print(f"   CBAM will be added to: layer3, layer4")
+                
+                # Create CustomRCNN with CBAM-enhanced backbone
+                model = CustomRCNN(
+                    backbone_modulename=backbonename,
+                    trainable_layers=trainable_layers,
+                    num_classes=num_classes,
+                    out_channels=256,
+                    min_size=800,
+                    max_size=1333,
+                    use_cbam=True,  # Enable CBAM
+                    cbam_reduction=16
+                )
+                print(f"✅ [MODEL] CustomRCNN with CBAM created successfully")
+            else:
+                # Standard CustomRCNN without CBAM
+                model = CustomRCNN(
+                    backbone_modulename=backbonename,
+                    trainable_layers=trainable_layers,
+                    num_classes=num_classes,
+                    out_channels=256,
+                    min_size=800,
+                    max_size=1333
+                )
+            
             if ckpt_file:
                 model = load_checkpoint(model, ckpt_file, fp16)
         else:
