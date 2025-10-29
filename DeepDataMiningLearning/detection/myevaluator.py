@@ -917,6 +917,11 @@ def simplemodelevaluate(
             torch.cuda.synchronize()
         model_time += time.perf_counter() - t0
 
+        # Handle MTL model output (dict with 'detection' key) vs standard detection output
+        if isinstance(outputs, dict) and 'detection' in outputs:
+            # MTL model - extract detection predictions
+            outputs = outputs['detection']
+        
         outputs = [{k: v.to(cpu_device) for k, v in o.items()} for o in outputs]
 
         # --- Optional class remapping ---
