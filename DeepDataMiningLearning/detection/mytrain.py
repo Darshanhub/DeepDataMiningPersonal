@@ -463,6 +463,24 @@ def main(args):
     model, preprocess, model_classes = create_detectionmodel(args.model, num_classes, nocustomize=args.nocustomize, trainable_layers=args.trainable)
     model.to(device)
     
+    # Print model architecture to verify correct model variant is loaded
+    print("\n" + "="*80)
+    print("MODEL ARCHITECTURE:")
+    print("="*80)
+    print(model)
+    print("="*80 + "\n")
+    
+    # Print specific info for MTL models
+    if hasattr(model, 'seg_head'):
+        print("✅ MTL Model Detected!")
+        print(f"   - Segmentation Head: {type(model.seg_head).__name__}")
+        print(f"   - Depth Head: {type(model.depth_head).__name__}")
+        print(f"   - Enable Segmentation: {model.enable_segmentation}")
+        print(f"   - Enable Depth: {model.enable_depth}")
+        print(f"   - Segmentation Weight: {model.seg_weight}")
+        print(f"   - Depth Weight: {model.depth_weight}")
+        print("="*80 + "\n")
+    
     if args.distributed and args.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
